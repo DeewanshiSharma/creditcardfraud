@@ -7,10 +7,10 @@ from typing import List
 
 app = FastAPI(title="Fraud Guard API")
 
-# ✅ FIXED CORS - Remove empty strings
+# ✅ Updated CORS - Allow all origins for now (Recommended for development)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["*"],           # Change to specific domains in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,7 +30,7 @@ except Exception as e:
     raise
 
 def sigmoid(z):
-    return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))  # ✅ Prevent overflow
+    return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
 
 class TransactionInput(BaseModel):
     features: List[float]
@@ -40,15 +40,15 @@ async def predict_fraud(data: TransactionInput):
     try:
         if len(data.features) != 30:
             raise HTTPException(status_code=400, detail="Exactly 30 features required")
-        
+       
         x = np.array(data.features, dtype=np.float64).reshape(1, -1)
         x_scaled = (x - mu) / (sigma + eps)
         z = x_scaled @ w + b
         prob = float(sigmoid(z)[0])
-        
+       
         threshold = 0.90
         is_fraud = prob >= threshold
-        
+       
         return {
             "is_fraud": bool(is_fraud),
             "fraud_probability": round(prob * 100, 2),
