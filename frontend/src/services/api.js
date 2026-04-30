@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // Remove the slash from the very end
-  baseURL: 'https://creditcardfraud-tyza.onrender.com', 
-  timeout: 15000, // Increased to 15 seconds to allow for the Render "Cold Start"
+  // Ensure there is NO '/' at the end
+  baseURL: '[https://creditcardfraud-tyza.onrender.com](https://creditcardfraud-tyza.onrender.com)', 
+  timeout: 20000, // 20 seconds to give Render time to wake up
 });
 
 export const fraudApi = {
