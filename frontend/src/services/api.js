@@ -1,11 +1,23 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // Remove the slash from the very end
-  baseURL: 'https://creditcardfraud-tyza.onrender.com', 
-  timeout: 15000, // Increased to 15 seconds to allow for the Render "Cold Start"
+  baseURL: 'https://creditcardfraud-tyza.onrender.com',
+  timeout: 20000,           // Increased to 20 seconds
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
+// Optional: Add response interceptor for better error messages
+api.interceptors.response.use(
+  response => response,
+  error => {
+    console.error("API Error:", error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
+
 export const fraudApi = {
-  predict: (features) => api.post('/predict', { features }),
+  healthCheck: () => api.get('/'),
+  predict: (features) => api.post('/predict', features),   // features as direct body
 };
