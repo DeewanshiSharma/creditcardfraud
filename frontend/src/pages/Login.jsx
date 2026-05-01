@@ -1,17 +1,53 @@
 import React, { useState } from 'react';
 
 export default function Login({ onLogin }) {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
-  const handleLogin = () => {
-    if (password === 'abcd') {
-      onLogin();
-    } else {
-      setError('Incorrect password. Please try again.');
+  const handleLogin = async () => {
+    if (!username || !password) {
+      setError('Please enter both username and password');
       setShake(true);
       setTimeout(() => setShake(false), 500);
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          username: username,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Save token in localStorage
+        localStorage.setItem('token', data.access_token);
+        
+        // Call parent function to show main app
+        onLogin();
+      } else {
+        setError(data.detail || 'Invalid username or password');
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+      }
+    } catch (err) {
+      setError('Server error. Please try again later.');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,7 +77,7 @@ export default function Login({ onLogin }) {
         backdropFilter: 'blur(20px)',
         animation: shake ? 'shake 0.4s ease' : 'none',
       }}>
-        {/* Icon */}
+        {/* Icon & Title */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
             width: '64px', height: '64px', borderRadius: '16px',
@@ -54,21 +90,21 @@ export default function Login({ onLogin }) {
             FraudGuard
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.9rem', margin: 0 }}>
-            Admin access only
+            Sign in to continue
           </p>
         </div>
 
-        {/* Input */}
+        {/* Username Input */}
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px', fontWeight: 500 }}>
-            Password
+            Username
           </label>
           <input
-            type="password"
-            value={password}
-            onChange={e => { setPassword(e.target.value); setError(''); }}
+            type="text"
+            value={username}
+            onChange={e => { setUsername(e.target.value); setError(''); }}
             onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            placeholder="Enter admin password"
+            placeholder="Enter your username"
             style={{
               width: '100%',
               background: 'rgba(255,255,255,0.07)',
@@ -79,37 +115,61 @@ export default function Login({ onLogin }) {
               fontSize: '1rem',
               outline: 'none',
               boxSizing: 'border-box',
-              transition: 'border 0.2s',
+            }}
+          />
+        </div>
+
+        {/* Password Input */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px', fontWeight: 500 }}>
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setError(''); }}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            placeholder="Enter your password"
+            style={{
+              width: '100%',
+              background: 'rgba(255,255,255,0.07)',
+              border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.12)',
+              borderRadius: '12px',
+              padding: '14px 16px',
+              color: '#fff',
+              fontSize: '1rem',
+              outline: 'none',
+              boxSizing: 'border-box',
             }}
           />
           {error && (
-            <p style={{ color: '#f87171', fontSize: '0.83rem', marginTop: '8px', margin: '8px 0 0' }}>
+            <p style={{ color: '#f87171', fontSize: '0.83rem', marginTop: '8px' }}>
               {error}
             </p>
           )}
         </div>
 
-        {/* Button */}
+        {/* Login Button */}
         <button
           onClick={handleLogin}
+          disabled={loading}
           style={{
             width: '100%',
-            background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+            background: loading ? '#4b5563' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
             border: 'none',
             borderRadius: '12px',
             padding: '14px',
             color: '#fff',
             fontSize: '1rem',
             fontWeight: 700,
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             marginTop: '0.5rem',
             transition: 'opacity 0.2s',
             letterSpacing: '0.3px',
+            opacity: loading ? 0.8 : 1,
           }}
-          onMouseOver={e => e.target.style.opacity = '0.9'}
-          onMouseOut={e => e.target.style.opacity = '1'}
         >
-          Sign In
+          {loading ? 'Signing In...' : 'Sign In'}
         </button>
       </div>
 
