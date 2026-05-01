@@ -2,14 +2,14 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://creditcardfraud-tyza.onrender.com',   // Keep your Render URL
+  baseURL: 'https://creditcardfraud-tyza.onrender.com',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request Interceptor - Automatically add JWT token
+// Request Interceptor - Add JWT Token automatically
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -21,7 +21,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor - Handle token expiration nicely
+// Response Interceptor - Handle 401 (Unauthorized)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -32,10 +32,9 @@ api.interceptors.response.use(
       url: error.config?.url
     });
 
-    // If token is expired or invalid → logout user
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      // Optional: Redirect to login or show message
+      alert("Your session has expired. Please login again.");
       window.location.href = '/';
     }
 
@@ -44,21 +43,29 @@ api.interceptors.response.use(
 );
 
 export const fraudApi = {
-  // Health check (public)
+  // Health check
   healthCheck: () => api.get('/'),
 
-  // Protected prediction
+  // Predict Fraud (Protected)
   predict: (featuresArray) =>
-    api.post('/predict', {
-      features: featuresArray
+    api.post('/predict', { 
+      features: featuresArray 
     }),
 
-  // Optional: Login & Register functions (if you want to move them here later)
-  login: (username, password) => 
-    api.post('/login', new URLSearchParams({ username, password }), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    }),
+  // Login - Fixed version
+  login: async (username, password) => {
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('password', password);
 
+    return api.post('/login', formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    });
+  },
+
+  // Register
   register: (userData) => 
     api.post('/register', userData),
 };
