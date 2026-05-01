@@ -1,32 +1,57 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
 
-  // Handle OAuth callback when user returns from Google
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (data.session) {
-        console.log("Session found after OAuth callback");
-        navigate('/', { replace: true });
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (session) {
+          console.log("✅ Session found after OAuth redirect");
+          navigate('/', { replace: true });
+        } else {
+          console.log("No session yet");
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Error checking session:", err);
+        setLoading(false);
       }
     };
 
-    handleAuthCallback();
+    checkSession();
   }, [navigate]);
 
   const handleGoogleLogin = async () => {
+    setLoading(true);
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,   // Better than hardcoding
+        redirectTo: window.location.origin,   // This is better
       }
     });
   };
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#060E1E',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontSize: '1.2rem'
+      }}>
+        Processing login...
+      </div>
+    );
+  }
 
   return (
     <div style={{
