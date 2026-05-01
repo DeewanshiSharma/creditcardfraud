@@ -7,11 +7,11 @@ import Predict from './pages/Predict';
 import Compare from './pages/Compare';
 import Plots from './pages/Plots';
 import Login from './pages/Login';
-import AuthCallback from './pages/AuthCallback';   // ← New Import
 
 function Layout({ handleLogout }) {
   return (
     <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white' }}>
+      {/* Your nav code remains the same */}
       <nav style={{
         background: 'rgba(10,20,40,0.85)',
         backdropFilter: 'blur(24px)',
@@ -24,13 +24,9 @@ function Layout({ handleLogout }) {
         top: 0,
         zIndex: 100,
       }}>
+        {/* ... keep your existing nav content ... */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
-          <div style={{
-            width: '32px', height: '32px', borderRadius: '8px',
-            background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '16px'
-          }}>🛡️</div>
+          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🛡️</div>
           <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.5px' }}>FraudGuard</span>
         </div>
 
@@ -41,48 +37,28 @@ function Layout({ handleLogout }) {
             { to: '/compare', label: 'Compare' },
             { to: '/plots', label: 'Plots' },
           ].map(({ to, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              style={({ isActive }) => ({
-                color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
-                padding: '6px 18px',
-                borderRadius: '8px',
-                background: isActive ? 'rgba(99,102,241,0.25)' : 'transparent',
-                border: isActive ? '1px solid rgba(99,102,241,0.5)' : '1px solid transparent',
-                textDecoration: 'none',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                transition: 'all 0.2s',
-              })}
-            >
+            <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
+              color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
+              padding: '6px 18px',
+              borderRadius: '8px',
+              background: isActive ? 'rgba(99,102,241,0.25)' : 'transparent',
+              border: isActive ? '1px solid rgba(99,102,241,0.5)' : '1px solid transparent',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+            })}>
               {label}
             </NavLink>
           ))}
         </div>
 
         <div style={{ minWidth: '180px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              color: '#f87171',
-              padding: '6px 18px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-            }}
-          >
+          <button onClick={handleLogout} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '6px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
             Logout
           </button>
         </div>
       </nav>
-      <main>
-        <Outlet />
-      </main>
+      <main><Outlet /></main>
     </div>
   );
 }
@@ -98,7 +74,7 @@ function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event);   // Helpful for debugging
+      console.log('🔐 Auth Event:', event, session ? 'User logged in' : 'No session');
       setSession(session);
       setLoading(false);
     });
@@ -110,49 +86,19 @@ function App() {
     await supabase.auth.signOut();
   };
 
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: '#060E1E',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        fontSize: '1.1rem'
-      }}>
-        Loading...
-      </div>
-    );
-  }
+  if (loading) return <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
 
   return (
     <Router>
       <Routes>
-        {/* Login Route */}
-        <Route
-          path="/login"
-          element={session ? <Navigate to="/" replace /> : <Login />}
-        />
-
-        {/* OAuth Callback Route - MUST be outside protected route */}
-        <Route path="/auth/callback" element={<AuthCallback />} />
-
+        <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
+        
         {/* Protected Routes */}
-        <Route
-          element={
-            session ? (
-              <Layout handleLogout={handleLogout} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        >
+        <Route element={session ? <Layout handleLogout={handleLogout} /> : <Navigate to="/login" replace />}>
           <Route path="/" element={<Home />} />
           <Route path="/predict" element={<Predict />} />
           <Route path="/compare" element={<Compare />} />
           <Route path="/plots" element={<Plots />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </Router>
