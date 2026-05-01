@@ -14,12 +14,13 @@ import joblib
 import os
 
 # ========================= CONFIGURATION =========================
-SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"
+SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"  # ← Change this in production!
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60   # 24 hours
 
-# Database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./users.db"
+# Database - Better path for Render
+SQLALCHEMY_DATABASE_URL = "sqlite:///./data/users.db"   # Changed to /data folder
+
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -30,17 +31,21 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Fraud Guard API")
 
-# ========================= CORS (FIXED) =========================
+# ========================= CORS - FIXED =========================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://creditcardfraud-1.onrender.com",  # your frontend
-        "http://localhost:3000",                    # local dev
-        "http://localhost:5173",                    # vite local dev
+        "https://creditcardfraud-1.onrender.com",     # Your Frontend
+        "https://creditcardfraud-tyza.onrender.com",  # Your Backend
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "*"                                            # ← Remove this after testing
     ],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # ========================= DATABASE MODEL =========================
@@ -51,6 +56,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
 
+# Create tables
 Base.metadata.create_all(bind=engine)
 
 # ========================= PYDANTIC SCHEMAS =========================
@@ -105,7 +111,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-
+    
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception
@@ -128,26 +134,36 @@ def sigmoid(z):
     return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
 
 # ========================= ROUTES =========================
-
 @app.post("/register", status_code=201)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="Username already registered")
-    if db.query(User).filter(User.email == user.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    try:
+        # Check if username or email already exists
+        if db.query(User).filter(User.username == user.username).first():
+            raise HTTPException(status_code=400, detail="Username already registered")
+        
+        if db.query(User).filter(User.email == user.email).first():
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-    hashed_password = get_password_hash(user.password)
-    db_user = User(
-        username=user.username,
-        email=user.email,
-        hashed_password=hashed_password
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+        hashed_password = get_password_hash(user.password)
+        
+        db_user = User(
+            username=user.username,
+            email=user.email,
+            hashed_password=hashed_password
+        )
+        
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
 
-    return {"message": "Account created successfully! You can now login."}
+        print(f"✅ New user registered: {user.username}")  # For Render Logs
+        return {"message": "Account created successfully! You can now login."}
 
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"❌ Register Error: {str(e)}")   # This will appear in Render Logs
+        raise HTTPException(status_code=500, detail="Internal server error during registration")
 
 @app.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -158,13 +174,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
+    
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
+    
     return {"access_token": access_token, "token_type": "bearer"}
-
 
 @app.post("/predict")
 async def predict_fraud(
@@ -174,15 +190,15 @@ async def predict_fraud(
     try:
         if len(data.features) != 30:
             raise HTTPException(status_code=400, detail="Exactly 30 features required")
-
+        
         x = np.array(data.features, dtype=np.float64).reshape(1, -1)
         x_scaled = (x - mu) / (sigma + eps)
         z = x_scaled @ w + b
         prob = float(sigmoid(z)[0])
-
+        
         threshold = 0.90
         is_fraud = prob >= threshold
-
+        
         return {
             "is_fraud": bool(is_fraud),
             "fraud_probability": round(prob * 100, 2),
@@ -194,7 +210,6 @@ async def predict_fraud(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
 @app.get("/")
 async def root():
-    return {"message": "Fraud Guard API is running", "status": "authenticated"}
+    return {"message": "Fraud Guard API is running", "status": "ok"}
