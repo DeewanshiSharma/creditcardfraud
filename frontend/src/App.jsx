@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, Outlet } from 'react-router-dom';
 import { supabase } from './supabase';
+
 import Home from './pages/Home';
 import Predict from './pages/Predict';
 import Compare from './pages/Compare';
 import Plots from './pages/Plots';
 import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';   // ← New Import
 
 function Layout({ handleLogout }) {
   return (
@@ -39,9 +41,9 @@ function Layout({ handleLogout }) {
             { to: '/compare', label: 'Compare' },
             { to: '/plots', label: 'Plots' },
           ].map(({ to, label }) => (
-            <NavLink 
-              key={to} 
-              to={to} 
+            <NavLink
+              key={to}
+              to={to}
               end={to === '/'}
               style={({ isActive }) => ({
                 color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
@@ -61,8 +63,8 @@ function Layout({ handleLogout }) {
         </div>
 
         <div style={{ minWidth: '180px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button 
-            onClick={handleLogout} 
+          <button
+            onClick={handleLogout}
             style={{
               background: 'rgba(239,68,68,0.1)',
               border: '1px solid rgba(239,68,68,0.3)',
@@ -90,15 +92,13 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event);   // ← Helpful for debugging
+      console.log('Auth event:', event);   // Helpful for debugging
       setSession(session);
       setLoading(false);
     });
@@ -112,12 +112,12 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        background: '#060E1E', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+      <div style={{
+        minHeight: '100vh',
+        background: '#060E1E',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         color: 'white',
         fontSize: '1.1rem'
       }}>
@@ -135,8 +135,11 @@ function App() {
           element={session ? <Navigate to="/" replace /> : <Login />}
         />
 
+        {/* OAuth Callback Route - MUST be outside protected route */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
+
         {/* Protected Routes */}
-        <Route 
+        <Route
           element={
             session ? (
               <Layout handleLogout={handleLogout} />
