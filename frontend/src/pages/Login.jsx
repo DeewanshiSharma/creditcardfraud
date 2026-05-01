@@ -1,3 +1,5 @@
+import React from 'react';
+// ... rest of your code
 import { supabase } from '../supabase';
 
 export default function Login() {
