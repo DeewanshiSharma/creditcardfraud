@@ -14,7 +14,7 @@ import joblib
 import os
 
 # ========================= CONFIGURATION =========================
-SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"  # ← Change this in production!
+SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
 
@@ -30,11 +30,15 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Fraud Guard API")
 
-# CORS
+# ========================= CORS (FIXED) =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # Change to your frontend URL in production
-    allow_credentials=True,
+    allow_origins=[
+        "https://creditcardfraud-1.onrender.com",  # your frontend
+        "http://localhost:3000",                    # local dev
+        "http://localhost:5173",                    # vite local dev
+    ],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -134,14 +138,14 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
     hashed_password = get_password_hash(user.password)
     db_user = User(
-        username=user.username, 
-        email=user.email, 
+        username=user.username,
+        email=user.email,
         hashed_password=hashed_password
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    
+
     return {"message": "Account created successfully! You can now login."}
 
 
@@ -154,7 +158,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -170,15 +174,15 @@ async def predict_fraud(
     try:
         if len(data.features) != 30:
             raise HTTPException(status_code=400, detail="Exactly 30 features required")
-        
+
         x = np.array(data.features, dtype=np.float64).reshape(1, -1)
         x_scaled = (x - mu) / (sigma + eps)
         z = x_scaled @ w + b
         prob = float(sigmoid(z)[0])
-        
+
         threshold = 0.90
         is_fraud = prob >= threshold
-        
+
         return {
             "is_fraud": bool(is_fraud),
             "fraud_probability": round(prob * 100, 2),
