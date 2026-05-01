@@ -4,37 +4,34 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
+  // Check if user is already logged in when component mounts
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (session) {
-          console.log("✅ Session found after OAuth redirect");
-          navigate('/', { replace: true });
-        } else {
-          console.log("No session yet");
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Error checking session:", err);
-        setLoading(false);
+    const checkIfLoggedIn = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/', { replace: true });
       }
     };
 
-    checkSession();
+    checkIfLoggedIn();
   }, [navigate]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,   // This is better
-      }
-    });
+
+    try {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,        // Redirect back to root after login
+        }
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -48,7 +45,7 @@ export default function Login() {
         color: 'white',
         fontSize: '1.2rem'
       }}>
-        Processing login...
+        Redirecting to Google...
       </div>
     );
   }
@@ -91,8 +88,8 @@ export default function Login() {
           Sign in to detect credit card fraud
         </p>
 
-        <button 
-          onClick={handleGoogleLogin} 
+        <button
+          onClick={handleGoogleLogin}
           style={{
             width: '100%',
             background: 'white',
