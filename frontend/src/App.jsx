@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
 import Home from './pages/Home';
 import Predict from './pages/Predict';
@@ -8,8 +8,44 @@ import Login from './pages/Login';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />;
+  // Check if user is already logged in on app start
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsLoggedIn(true);
+    }
+    setLoading(false);
+  }, []);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');   // Clear JWT token
+    setIsLoggedIn(false);
+  };
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#060E1E',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fff'
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <Router>
@@ -26,7 +62,7 @@ function App() {
           top: 0,
           zIndex: 100,
         }}>
-          {/* Logo left */}
+          {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
             <div style={{
               width: '32px', height: '32px', borderRadius: '8px',
@@ -37,7 +73,7 @@ function App() {
             <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.5px' }}>FraudGuard</span>
           </div>
 
-          {/* Centered links */}
+          {/* Navigation Links */}
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '4px' }}>
             {[
               { to: '/', label: 'Home' },
@@ -45,34 +81,43 @@ function App() {
               { to: '/compare', label: 'Compare' },
               { to: '/plots', label: 'Plots' },
             ].map(({ to, label }) => (
-              <NavLink key={to} to={to} style={({ isActive }) => ({
-                color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
-                padding: '6px 18px',
-                borderRadius: '8px',
-                background: isActive ? 'rgba(99,102,241,0.25)' : 'transparent',
-                border: isActive ? '1px solid rgba(99,102,241,0.5)' : '1px solid transparent',
-                textDecoration: 'none',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                transition: 'all 0.2s',
-              })}>
+              <NavLink 
+                key={to} 
+                to={to} 
+                style={({ isActive }) => ({
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
+                  padding: '6px 18px',
+                  borderRadius: '8px',
+                  background: isActive ? 'rgba(99,102,241,0.25)' : 'transparent',
+                  border: isActive ? '1px solid rgba(99,102,241,0.5)' : '1px solid transparent',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  transition: 'all 0.2s',
+                })}
+              >
                 {label}
               </NavLink>
             ))}
           </div>
 
-          {/* Logout right */}
+          {/* Logout Button */}
           <div style={{ minWidth: '180px', display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => setIsLoggedIn(false)} style={{
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              color: '#f87171',
-              padding: '6px 18px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-            }}>Logout</button>
+            <button 
+              onClick={handleLogout}
+              style={{
+                background: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.3)',
+                color: '#f87171',
+                padding: '6px 18px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+              }}
+            >
+              Logout
+            </button>
           </div>
         </nav>
 
