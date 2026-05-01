@@ -14,12 +14,14 @@ import joblib
 import os
 
 # ========================= CONFIGURATION =========================
-SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"  # Change this in production!
+SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
 
-# Persistent Database for Render (using Disk)
-SQLALCHEMY_DATABASE_URL = "sqlite:////data/users.db"
+# ========================= DATABASE - FIXED =========================
+# Use a local path relative to the app — works on Render free tier
+DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -31,16 +33,15 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Fraud Guard API")
 
-# ========================= CORS - FIXED =========================
+# ========================= CORS =========================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://creditcardfraud-1.onrender.com",     # ← Your Frontend URL
-        "https://creditcardfraud-tyza.onrender.com",  # Your Backend
+        "https://creditcardfraud-1.onrender.com",
+        "https://creditcardfraud-tyza.onrender.com",
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
-        "*"                                            # ← Remove this after successful testing
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -111,7 +112,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception
@@ -119,7 +120,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 
 # ========================= MODEL LOADING =========================
 try:
-    model_data = joblib.load("fraud_model.pkl")
+    model_path = os.path.join(os.path.dirname(__file__), "fraud_model.pkl")
+    model_data = joblib.load(model_path)
     w = model_data['w']
     b = model_data['b']
     mu = model_data['mu']
@@ -139,23 +141,23 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
         if db.query(User).filter(User.username == user.username).first():
             raise HTTPException(status_code=400, detail="Username already registered")
-        
+
         if db.query(User).filter(User.email == user.email).first():
             raise HTTPException(status_code=400, detail="Email already registered")
 
         hashed_password = get_password_hash(user.password)
-        
+
         db_user = User(
             username=user.username,
             email=user.email,
             hashed_password=hashed_password
         )
-        
+
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
 
-        print(f"✅ New user registered successfully: {user.username}")
+        print(f"✅ New user registered: {user.username}")
         return {"message": "Account created successfully! You can now login."}
 
     except HTTPException as he:
@@ -173,12 +175,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    
+
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/predict")
@@ -189,15 +191,15 @@ async def predict_fraud(
     try:
         if len(data.features) != 30:
             raise HTTPException(status_code=400, detail="Exactly 30 features required")
-        
+
         x = np.array(data.features, dtype=np.float64).reshape(1, -1)
         x_scaled = (x - mu) / (sigma + eps)
         z = x_scaled @ w + b
         prob = float(sigmoid(z)[0])
-        
+
         threshold = 0.90
         is_fraud = prob >= threshold
-        
+
         return {
             "is_fraud": bool(is_fraud),
             "fraud_probability": round(prob * 100, 2),
