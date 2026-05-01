@@ -1,5 +1,4 @@
 import React from 'react';
-// ... rest of your code
 import { supabase } from '../supabase';
 
 export default function Login() {
@@ -49,7 +48,6 @@ export default function Login() {
         <p style={{ color: 'rgba(255,255,255,0.55)', marginBottom: '32px' }}>
           Sign in to detect credit card fraud
         </p>
-
         <button onClick={handleGoogleLogin} style={{
           width: '100%',
           background: 'white',
