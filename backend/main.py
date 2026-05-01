@@ -19,10 +19,23 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
 
 # ========================= DATABASE =========================
-DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+# 1. Try to get the cloud database URL from the environment
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# 2. Fallback to local SQLite ONLY if no cloud URL is found
+if not SQLALCHEMY_DATABASE_URL:
+    print("⚠️ Warning: No DATABASE_URL found. Falling back to local SQLite.")
+    DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+else:
+    # 3. SQLAlchemy requires 'postgresql://' but Neon gives 'postgres://'
+    if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# 4. Create the engine dynamically based on which DB is used
+connect_args = {"check_same_thread": False} if "sqlite" in SQLALCHEMY_DATABASE_URL else {}
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
