@@ -1,9 +1,11 @@
 fastapi
-uvicorn[standard]
-python-multipart
+uvicorn
 sqlalchemy
 pydantic[email]
 passlib[bcrypt]
+bcrypt==4.0.1
 python-jose[cryptography]
+python-multipart
 numpy
 joblib
+email-validator
