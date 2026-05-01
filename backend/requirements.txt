@@ -1,5 +1,9 @@
 fastapi
-uvicorn
-joblib
+uvicorn[standard]
+python-multipart
+sqlalchemy
+pydantic[email]
+passlib[bcrypt]
+python-jose[cryptography]
 numpy
-pydantic
+joblib
