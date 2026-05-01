@@ -9,4 +9,4 @@ python-multipart
 numpy
 joblib
 email-validator
-psycopg2-binary
+supabase
