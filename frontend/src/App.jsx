@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, Outlet } from 'react-router-dom';
+import { supabase } from './supabase';
 import Home from './pages/Home';
 import Predict from './pages/Predict';
 import Compare from './pages/Compare';
@@ -76,22 +77,40 @@ function Layout({ handleLogout }) {
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+  const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogin = () => setIsLoggedIn(true);
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setIsLoggedIn(false);
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
+
+  if (loading) {
+    return <div style={{ minHeight: '100vh', background: '#060E1E', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>Loading...</div>;
+  }
 
   return (
     <Router>
       <Routes>
         <Route
           path="/login"
-          element={isLoggedIn ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />}
+          element={session ? <Navigate to="/" replace /> : <Login />}
         />
-        <Route element={isLoggedIn ? <Layout handleLogout={handleLogout} /> : <Navigate to="/login" replace />}>
+        <Route element={session ? <Layout handleLogout={handleLogout} /> : <Navigate to="/login" replace />}>
           <Route path="/" element={<Home />} />
           <Route path="/predict" element={<Predict />} />
           <Route path="/compare" element={<Compare />} />
