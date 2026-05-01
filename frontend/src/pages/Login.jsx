@@ -6,32 +6,23 @@ export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  // Check if user is already logged in when component mounts
   useEffect(() => {
-    const checkIfLoggedIn = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate('/', { replace: true });
       }
-    };
-
-    checkIfLoggedIn();
+    });
   }, [navigate]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
 
-    try {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,        // Redirect back to root after login
-        }
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      setLoading(false);
-    }
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://creditcardfraud-1.onrender.com',   // Hardcode for now (safer on Render)
+      }
+    });
   };
 
   if (loading) {
@@ -70,15 +61,10 @@ export default function Login() {
         maxWidth: '400px'
       }}>
         <div style={{
-          width: '64px',
-          height: '64px',
-          borderRadius: '16px',
+          width: '64px', height: '64px', borderRadius: '16px',
           background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '32px',
-          margin: '0 auto 24px'
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '32px', margin: '0 auto 24px'
         }}>🛡️</div>
        
         <h1 style={{ color: 'white', fontSize: '2rem', marginBottom: '8px' }}>
