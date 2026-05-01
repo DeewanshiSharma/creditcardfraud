@@ -1,14 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const BASE_URL = 'https://creditcardfraud-tyza.onrender.com';
 
 export default function Login({ onLogin }) {
-  const [tab, setTab] = useState('register'); // 'register' or 'login'
-
+  const [tab, setTab] = useState('register');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
+  const [serverWaking, setServerWaking] = useState(false);
+  const [wakingSeconds, setWakingSeconds] = useState(0);
+
+  // Wake-up countdown timer
+  useEffect(() => {
+    let interval;
+    if (serverWaking) {
+      setWakingSeconds(0);
+      interval = setInterval(() => setWakingSeconds(s => s + 1), 1000);
+    } else {
+      setWakingSeconds(0);
+    }
+    return () => clearInterval(interval);
+  }, [serverWaking]);
 
   const triggerShake = () => {
     setShake(true);
@@ -19,60 +35,88 @@ export default function Login({ onLogin }) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setServerWaking(false);
 
-    const isRegister = tab === 'register';
-    const baseURL = 'https://creditcardfraud-tyza.onrender.com';
+    // Show wake-up notice after 4 seconds of waiting
+    const wakeTimer = setTimeout(() => {
+      setServerWaking(true);
+    }, 4000);
 
     try {
       let response;
 
-      if (isRegister) {
-        // Register
-        response = await fetch(`${baseURL}/register`, {
+      if (tab === 'register') {
+        response = await fetch(`${BASE_URL}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            username, 
-            email, 
-            password 
-          }),
+          body: JSON.stringify({ username, email, password }),
         });
       } else {
-        // Login
         const formData = new URLSearchParams();
         formData.append('username', username);
         formData.append('password', password);
 
-        response = await fetch(`${baseURL}/login`, {
+        response = await fetch(`${BASE_URL}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: formData,
         });
       }
 
+      clearTimeout(wakeTimer);
+      setServerWaking(false);
+
       const data = await response.json();
 
       if (response.ok) {
-        if (isRegister) {
-          setError('✅ Account created successfully! Please login now.');
+        if (tab === 'register') {
+          setError('✅ Account created! Please login now.');
           setTab('login');
           setPassword('');
+          setEmail('');
         } else {
-          // Successful Login
           localStorage.setItem('token', data.access_token);
           onLogin();
         }
       } else {
-        setError(data.detail || 'Something went wrong. Please try again.');
+        const msg = data.detail || 'Something went wrong. Please try again.';
+        setError(Array.isArray(msg) ? msg[0]?.msg || 'Validation error' : msg);
         triggerShake();
       }
     } catch (err) {
-      setError('Unable to connect to server. Please check your internet.');
+      clearTimeout(wakeTimer);
+      setServerWaking(false);
+      if (err.name === 'TypeError' || err.message.includes('fetch')) {
+        setError('⏳ Server is waking up (Render free tier). Wait ~30s and try again.');
+      } else {
+        setError('Unable to connect. Please check your internet connection.');
+      }
       triggerShake();
-      console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const inputStyle = {
+    width: '100%',
+    background: 'rgba(255,255,255,0.07)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: '12px',
+    padding: '14px 16px',
+    color: '#fff',
+    fontSize: '1rem',
+    outline: 'none',
+    boxSizing: 'border-box',   // ← FIX: prevents overflow
+    transition: 'border-color 0.2s',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '0.82rem',
+    color: 'rgba(255,255,255,0.55)',
+    marginBottom: '8px',
+    fontWeight: 500,
+    letterSpacing: '0.03em',
   };
 
   return (
@@ -83,6 +127,7 @@ export default function Login({ onLogin }) {
       alignItems: 'center',
       justifyContent: 'center',
       padding: '1rem',
+      fontFamily: "'Segoe UI', system-ui, sans-serif",
     }}>
       {/* Glow orb */}
       <div style={{
@@ -100,6 +145,7 @@ export default function Login({ onLogin }) {
         padding: '3rem 2.5rem',
         backdropFilter: 'blur(20px)',
         animation: shake ? 'shake 0.4s ease' : 'none',
+        boxSizing: 'border-box',
       }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -119,131 +165,125 @@ export default function Login({ onLogin }) {
         </div>
 
         {/* Tabs */}
-        <div style={{ 
-          display: 'flex', 
-          background: 'rgba(255,255,255,0.05)', 
-          borderRadius: '12px', 
+        <div style={{
+          display: 'flex',
+          background: 'rgba(255,255,255,0.05)',
+          borderRadius: '12px',
           padding: '4px',
-          marginBottom: '2rem' 
+          marginBottom: '2rem',
         }}>
-          <button
-            onClick={() => { setTab('register'); setError(''); }}
-            style={{
-              flex: 1,
-              padding: '12px',
-              border: 'none',
-              borderRadius: '10px',
-              background: tab === 'register' ? '#6366f1' : 'transparent',
-              color: tab === 'register' ? '#fff' : 'rgba(255,255,255,0.6)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            Register
-          </button>
-          <button
-            onClick={() => { setTab('login'); setError(''); }}
-            style={{
-              flex: 1,
-              padding: '12px',
-              border: 'none',
-              borderRadius: '10px',
-              background: tab === 'login' ? '#6366f1' : 'transparent',
-              color: tab === 'login' ? '#fff' : 'rgba(255,255,255,0.6)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            Login
-          </button>
+          {['register', 'login'].map(t => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setError(''); }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                border: 'none',
+                borderRadius: '10px',
+                background: tab === t ? '#6366f1' : 'transparent',
+                color: tab === t ? '#fff' : 'rgba(255,255,255,0.6)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontSize: '0.95rem',
+              }}
+            >
+              {t === 'register' ? 'Register' : 'Login'}
+            </button>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit}>
           {/* Username */}
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px', fontWeight: 500 }}>
-              Username
-            </label>
+            <label style={labelStyle}>Username</label>
             <input
               type="text"
               value={username}
               onChange={(e) => { setUsername(e.target.value); setError(''); }}
               placeholder="Choose a username"
               required
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,0.07)',
-                border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '12px',
-                padding: '14px 16px',
-                color: '#fff',
-                fontSize: '1rem',
-                outline: 'none',
-              }}
+              minLength={3}
+              style={inputStyle}
             />
           </div>
 
-          {/* Email - Only show in Register tab */}
+          {/* Email — Register only */}
           {tab === 'register' && (
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px', fontWeight: 500 }}>
-                Email
-              </label>
+              <label style={labelStyle}>Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
                 placeholder="Enter your email"
                 required
-                style={{
-                  width: '100%',
-                  background: 'rgba(255,255,255,0.07)',
-                  border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: '12px',
-                  padding: '14px 16px',
-                  color: '#fff',
-                  fontSize: '1rem',
-                  outline: 'none',
-                }}
+                style={inputStyle}
               />
             </div>
           )}
 
           {/* Password */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px', fontWeight: 500 }}>
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(''); }}
-              placeholder="Enter password"
-              required
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,0.07)',
-                border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.12)',
-                borderRadius: '12px',
-                padding: '14px 16px',
-                color: '#fff',
-                fontSize: '1rem',
-                outline: 'none',
-              }}
-            />
+            <label style={labelStyle}>Password</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                placeholder="Enter password"
+                required
+                minLength={6}
+                style={{ ...inputStyle, paddingRight: '48px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(s => !s)}
+                style={{
+                  position: 'absolute', right: '14px', top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none', border: 'none',
+                  color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
+                  fontSize: '1.1rem', padding: 0,
+                }}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
           </div>
 
+          {/* Error / Success message */}
           {error && (
-            <p style={{ 
-              color: error.includes('✅') ? '#4ade80' : '#f87171', 
-              textAlign: 'center', 
+            <div style={{
+              background: error.includes('✅') ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)',
+              border: `1px solid ${error.includes('✅') ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
+              borderRadius: '10px',
+              padding: '10px 14px',
               marginBottom: '1rem',
-              fontSize: '0.9rem'
+              color: error.includes('✅') ? '#4ade80' : '#f87171',
+              fontSize: '0.88rem',
+              textAlign: 'center',
             }}>
               {error}
-            </p>
+            </div>
+          )}
+
+          {/* Server waking notice */}
+          {serverWaking && (
+            <div style={{
+              background: 'rgba(251,191,36,0.1)',
+              border: '1px solid rgba(251,191,36,0.3)',
+              borderRadius: '10px',
+              padding: '10px 14px',
+              marginBottom: '1rem',
+              color: '#fbbf24',
+              fontSize: '0.85rem',
+              textAlign: 'center',
+            }}>
+              ⏳ Waking up server... ({wakingSeconds}s) — Render free tier takes ~30s on first request
+            </div>
           )}
 
           <button
@@ -251,7 +291,7 @@ export default function Login({ onLogin }) {
             disabled={loading}
             style={{
               width: '100%',
-              background: loading ? '#4b5563' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
+              background: loading ? '#374151' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
               border: 'none',
               borderRadius: '12px',
               padding: '14px',
@@ -259,14 +299,27 @@ export default function Login({ onLogin }) {
               fontSize: '1.05rem',
               fontWeight: 700,
               cursor: loading ? 'not-allowed' : 'pointer',
-              marginTop: '0.5rem',
+              marginTop: '0.25rem',
+              transition: 'opacity 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
             }}
           >
-            {loading 
-              ? 'Processing...' 
-              : tab === 'register' 
-                ? 'Create Account' 
-                : 'Sign In'}
+            {loading && (
+              <span style={{
+                width: '16px', height: '16px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderTopColor: '#fff',
+                borderRadius: '50%',
+                display: 'inline-block',
+                animation: 'spin 0.7s linear infinite',
+              }} />
+            )}
+            {loading
+              ? (serverWaking ? 'Waiting for server...' : 'Processing...')
+              : tab === 'register' ? 'Create Account' : 'Sign In'}
           </button>
         </form>
       </div>
@@ -279,6 +332,11 @@ export default function Login({ onLogin }) {
           60% { transform: translateX(-5px); }
           80% { transform: translateX(5px); }
         }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        input::placeholder { color: rgba(255,255,255,0.25); }
+        input:focus { border-color: rgba(99,102,241,0.6) !important; }
       `}</style>
     </div>
   );
