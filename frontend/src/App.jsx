@@ -81,15 +81,17 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
+    // Handle OAuth redirect + get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -100,7 +102,11 @@ function App() {
   };
 
   if (loading) {
-    return <div style={{ minHeight: '100vh', background: '#060E1E', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>Loading...</div>;
+    return (
+      <div style={{ minHeight: '100vh', background: '#060E1E', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+        Loading...
+      </div>
+    );
   }
 
   return (
