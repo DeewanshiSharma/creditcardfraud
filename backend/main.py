@@ -18,8 +18,7 @@ SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
 
-# ========================= DATABASE - FIXED =========================
-# Use a local path relative to the app — works on Render free tier
+# ========================= DATABASE =========================
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
 
@@ -27,7 +26,6 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -36,17 +34,10 @@ app = FastAPI(title="Fraud Guard API")
 # ========================= CORS =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://creditcardfraud-1.onrender.com",
-        "https://creditcardfraud-tyza.onrender.com",
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
 )
 
 # ========================= DATABASE MODEL =========================
@@ -57,7 +48,6 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
 
-# Create database tables
 Base.metadata.create_all(bind=engine)
 
 # ========================= PYDANTIC SCHEMAS =========================
@@ -136,6 +126,10 @@ def sigmoid(z):
     return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
 
 # ========================= ROUTES =========================
+@app.get("/")
+async def root():
+    return {"message": "Fraud Guard API is running", "status": "ok"}
+
 @app.post("/register", status_code=201)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
@@ -145,14 +139,11 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         if db.query(User).filter(User.email == user.email).first():
             raise HTTPException(status_code=400, detail="Email already registered")
 
-        hashed_password = get_password_hash(user.password)
-
         db_user = User(
             username=user.username,
             email=user.email,
-            hashed_password=hashed_password
+            hashed_password=get_password_hash(user.password)
         )
-
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
@@ -164,7 +155,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         raise he
     except Exception as e:
         print(f"❌ Register Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error during registration")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 @app.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -180,7 +171,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.post("/predict")
@@ -210,7 +200,3 @@ async def predict_fraud(
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-@app.get("/")
-async def root():
-    return {"message": "Fraud Guard API is running", "status": "ok"}
