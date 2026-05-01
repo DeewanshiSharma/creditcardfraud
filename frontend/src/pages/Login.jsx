@@ -1,12 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
+  const navigate = useNavigate();
+
+  // Handle OAuth callback when user returns from Google
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (data.session) {
+        console.log("Session found after OAuth callback");
+        navigate('/', { replace: true });
+      }
+    };
+
+    handleAuthCallback();
+  }, [navigate]);
+
   const handleGoogleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://creditcardfraud-1.onrender.com'
+        redirectTo: window.location.origin,   // Better than hardcoding
       }
     });
   };
@@ -41,28 +58,32 @@ export default function Login() {
           fontSize: '32px',
           margin: '0 auto 24px'
         }}>🛡️</div>
-        
+       
         <h1 style={{ color: 'white', fontSize: '2rem', marginBottom: '8px' }}>
           FraudGuard
         </h1>
         <p style={{ color: 'rgba(255,255,255,0.55)', marginBottom: '32px' }}>
           Sign in to detect credit card fraud
         </p>
-        <button onClick={handleGoogleLogin} style={{
-          width: '100%',
-          background: 'white',
-          color: '#333',
-          padding: '12px 24px',
-          borderRadius: '8px',
-          border: 'none',
-          cursor: 'pointer',
-          fontWeight: 600,
-          fontSize: '1rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '10px'
-        }}>
+
+        <button 
+          onClick={handleGoogleLogin} 
+          style={{
+            width: '100%',
+            background: 'white',
+            color: '#333',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            border: 'none',
+            cursor: 'pointer',
+            fontWeight: 600,
+            fontSize: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px'
+          }}
+        >
           <img src="https://www.google.com/favicon.ico" width="20" alt="Google" />
           Sign in with Google
         </button>
