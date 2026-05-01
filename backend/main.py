@@ -14,12 +14,12 @@ import joblib
 import os
 
 # ========================= CONFIGURATION =========================
-SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"  # ← Change this in production!
+SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"  # Change this in production!
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60   # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
 
-# Database - Better path for Render
-SQLALCHEMY_DATABASE_URL = "sqlite:///./data/users.db"   # Changed to /data folder
+# Persistent Database for Render (using Disk)
+SQLALCHEMY_DATABASE_URL = "sqlite:////data/users.db"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -35,12 +35,12 @@ app = FastAPI(title="Fraud Guard API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://creditcardfraud-1.onrender.com",     # Your Frontend
+        "https://creditcardfraud-1.onrender.com",     # ← Your Frontend URL
         "https://creditcardfraud-tyza.onrender.com",  # Your Backend
         "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
-        "*"                                            # ← Remove this after testing
+        "*"                                            # ← Remove this after successful testing
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -56,7 +56,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
 
-# Create tables
+# Create database tables
 Base.metadata.create_all(bind=engine)
 
 # ========================= PYDANTIC SCHEMAS =========================
@@ -137,7 +137,6 @@ def sigmoid(z):
 @app.post("/register", status_code=201)
 def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
-        # Check if username or email already exists
         if db.query(User).filter(User.username == user.username).first():
             raise HTTPException(status_code=400, detail="Username already registered")
         
@@ -156,13 +155,13 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_user)
 
-        print(f"✅ New user registered: {user.username}")  # For Render Logs
+        print(f"✅ New user registered successfully: {user.username}")
         return {"message": "Account created successfully! You can now login."}
 
     except HTTPException as he:
         raise he
     except Exception as e:
-        print(f"❌ Register Error: {str(e)}")   # This will appear in Render Logs
+        print(f"❌ Register Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error during registration")
 
 @app.post("/login", response_model=Token)
