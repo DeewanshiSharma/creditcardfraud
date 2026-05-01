@@ -13,10 +13,10 @@ import numpy as np
 import joblib
 import os
 
-# ========================= CONFIG =========================
-SECRET_KEY = "your-super-secret-key-change-this-in-production"  # Change this!
+# ========================= CONFIGURATION =========================
+SECRET_KEY = "change-this-to-a-very-strong-secret-key-2026"  # ← Change this in production!
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24   # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
 
 # Database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./users.db"
@@ -33,13 +33,13 @@ app = FastAPI(title="Fraud Guard API")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # Change to your frontend URL in production
+    allow_origins=["*"],          # Change to your frontend URL in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ========================= MODELS =========================
+# ========================= DATABASE MODEL =========================
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -59,13 +59,10 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-class TokenData(BaseModel):
-    username: Optional[str] = None
-
 class TransactionInput(BaseModel):
     features: List[float]
 
-# ========================= HELPER FUNCTIONS =========================
+# ========================= HELPERS =========================
 def get_db():
     db = SessionLocal()
     try:
@@ -110,6 +107,22 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     return user
 
+# ========================= MODEL LOADING =========================
+try:
+    model_data = joblib.load("fraud_model.pkl")
+    w = model_data['w']
+    b = model_data['b']
+    mu = model_data['mu']
+    sigma = model_data['sigma']
+    eps = 1e-15
+    print("✅ Fraud model loaded successfully!")
+except Exception as e:
+    print("❌ Error loading model:", e)
+    raise
+
+def sigmoid(z):
+    return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
+
 # ========================= ROUTES =========================
 
 @app.post("/register", status_code=201)
@@ -120,11 +133,16 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed_password = get_password_hash(user.password)
-    db_user = User(username=user.username, email=user.email, hashed_password=hashed_password)
+    db_user = User(
+        username=user.username, 
+        email=user.email, 
+        hashed_password=hashed_password
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return {"message": "User registered successfully"}
+    
+    return {"message": "Account created successfully! You can now login."}
 
 
 @app.post("/login", response_model=Token)
@@ -136,6 +154,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -166,7 +185,7 @@ async def predict_fraud(
             "threshold_used": threshold,
             "message": "🚨 High Risk - Possible Fraud!" if is_fraud else "✅ Transaction appears legitimate.",
             "recommendation": "Block transaction" if is_fraud else "Allow transaction",
-            "user": current_user.username
+            "logged_in_user": current_user.username
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -174,4 +193,4 @@ async def predict_fraud(
 
 @app.get("/")
 async def root():
-    return {"message": "Fraud Guard API is running", "auth": "JWT Enabled"}
+    return {"message": "Fraud Guard API is running", "status": "authenticated"}
