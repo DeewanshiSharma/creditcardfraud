@@ -68,7 +68,6 @@ function Layout({ handleLogout }) {
           }}>Logout</button>
         </div>
       </nav>
-
       <main>
         <Outlet />
       </main>
@@ -81,22 +80,14 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  supabase.auth.onAuthStateChange((event, session) => {
-    setSession(session);
-    setLoading(false);
-  });
-
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    setSession(session);
-    setLoading(false);
-  });
-}, []);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        setLoading(false);
-      }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
