@@ -1,51 +1,64 @@
+// src/pages/Auth.jsx
 import React, { useState } from 'react';
 
-export default function Login({ onLogin }) {
+export default function Auth({ onLogin }) {
+  const [tab, setTab] = useState('register'); // 'register' or 'login'
+
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [shake, setShake] = useState(false);
 
-  const handleLogin = async () => {
-    if (!username || !password) {
-      setError('Please enter both username and password');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      return;
-    }
-
-    setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
+    setLoading(true);
+
+    const isRegister = tab === 'register';
+    const url = isRegister 
+      ? 'https://creditcardfraud-tyza.onrender.com/register' 
+      : 'https://creditcardfraud-tyza.onrender.com/login';
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          username: username,
-          password: password,
-        }),
-      });
+      let response;
+
+      if (isRegister) {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password })
+        });
+      } else {
+        // Login
+        const formData = new URLSearchParams();
+        formData.append('username', username);
+        formData.append('password', password);
+
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData
+        });
+      }
 
       const data = await response.json();
 
       if (response.ok) {
-        // Save token in localStorage
-        localStorage.setItem('token', data.access_token);
-        
-        // Call parent function to show main app
-        onLogin();
+        if (isRegister) {
+          alert('Account created successfully! Please login now.');
+          setTab('login');        // Switch to login tab
+          setPassword('');        // Clear password field
+        } else {
+          // Successful Login
+          localStorage.setItem('token', data.access_token);
+          onLogin();
+        }
       } else {
-        setError(data.detail || 'Invalid username or password');
-        setShake(true);
-        setTimeout(() => setShake(false), 500);
+        setError(data.detail || 'Operation failed. Please try again.');
       }
     } catch (err) {
-      setError('Server error. Please try again later.');
-      console.error(err);
+      setError('Unable to connect to server. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -60,128 +73,107 @@ export default function Login({ onLogin }) {
       justifyContent: 'center',
       padding: '1rem',
     }}>
-      {/* Glow orb */}
       <div style={{
-        position: 'fixed', top: '-100px', left: '50%', transform: 'translateX(-50%)',
-        width: '600px', height: '400px',
-        background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
-        pointerEvents: 'none',
-      }} />
-
-      <div style={{
-        width: '100%', maxWidth: '420px',
+        width: '100%', maxWidth: '440px',
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: '24px',
         padding: '3rem 2.5rem',
         backdropFilter: 'blur(20px)',
-        animation: shake ? 'shake 0.4s ease' : 'none',
       }}>
-        {/* Icon & Title */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            width: '64px', height: '64px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '28px', marginBottom: '1.5rem',
-            boxShadow: '0 0 40px rgba(99,102,241,0.3)',
-          }}>🛡️</div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#fff', margin: '0 0 0.5rem' }}>
-            FraudGuard
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.9rem', margin: 0 }}>
-            Sign in to continue
+          <div style={{ fontSize: '48px', marginBottom: '1rem' }}>🛡️</div>
+          <h1 style={{ color: '#fff', margin: '0 0 0.5rem' }}>FraudGuard</h1>
+          <p style={{ color: 'rgba(255,255,255,0.5)' }}>
+            {tab === 'register' ? 'Create your account' : 'Sign in to your account'}
           </p>
         </div>
 
-        {/* Username Input */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px', fontWeight: 500 }}>
-            Username
-          </label>
+        {/* Tab Buttons */}
+        <div style={{ display: 'flex', marginBottom: '2rem', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '4px' }}>
+          <button 
+            onClick={() => setTab('register')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '10px',
+              border: 'none',
+              background: tab === 'register' ? '#6366f1' : 'transparent',
+              color: tab === 'register' ? 'white' : 'rgba(255,255,255,0.6)',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            Register
+          </button>
+          <button 
+            onClick={() => setTab('login')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '10px',
+              border: 'none',
+              background: tab === 'login' ? '#6366f1' : 'transparent',
+              color: tab === 'login' ? 'white' : 'rgba(255,255,255,0.6)',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            Login
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
           <input
             type="text"
+            placeholder="Username"
             value={username}
-            onChange={e => { setUsername(e.target.value); setError(''); }}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            placeholder="Enter your username"
-            style={{
-              width: '100%',
-              background: 'rgba(255,255,255,0.07)',
-              border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.12)',
-              borderRadius: '12px',
-              padding: '14px 16px',
-              color: '#fff',
-              fontSize: '1rem',
-              outline: 'none',
-              boxSizing: 'border-box',
-            }}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            style={{ width: '100%', padding: '14px', marginBottom: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
           />
-        </div>
 
-        {/* Password Input */}
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px', fontWeight: 500 }}>
-            Password
-          </label>
+          {tab === 'register' && (
+            <input
+              type="email"
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{ width: '100%', padding: '14px', marginBottom: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+            />
+          )}
+
           <input
             type="password"
+            placeholder="Password"
             value={password}
-            onChange={e => { setPassword(e.target.value); setError(''); }}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            placeholder="Enter your password"
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{ width: '100%', padding: '14px', marginBottom: '20px', borderRadius: '12px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', color: 'white' }}
+          />
+
+          {error && <p style={{ color: '#f87171', textAlign: 'center', marginBottom: '15px' }}>{error}</p>}
+
+          <button 
+            type="submit"
+            disabled={loading}
             style={{
               width: '100%',
-              background: 'rgba(255,255,255,0.07)',
-              border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid rgba(255,255,255,0.12)',
+              padding: '14px',
+              background: '#6366f1',
+              color: 'white',
+              border: 'none',
               borderRadius: '12px',
-              padding: '14px 16px',
-              color: '#fff',
-              fontSize: '1rem',
-              outline: 'none',
-              boxSizing: 'border-box',
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer'
             }}
-          />
-          {error && (
-            <p style={{ color: '#f87171', fontSize: '0.83rem', marginTop: '8px' }}>
-              {error}
-            </p>
-          )}
-        </div>
-
-        {/* Login Button */}
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          style={{
-            width: '100%',
-            background: loading ? '#4b5563' : 'linear-gradient(135deg, #3b82f6, #6366f1)',
-            border: 'none',
-            borderRadius: '12px',
-            padding: '14px',
-            color: '#fff',
-            fontSize: '1rem',
-            fontWeight: 700,
-            cursor: loading ? 'not-allowed' : 'pointer',
-            marginTop: '0.5rem',
-            transition: 'opacity 0.2s',
-            letterSpacing: '0.3px',
-            opacity: loading ? 0.8 : 1,
-          }}
-        >
-          {loading ? 'Signing In...' : 'Sign In'}
-        </button>
+          >
+            {loading ? 'Processing...' : tab === 'register' ? 'Create Account' : 'Sign In'}
+          </button>
+        </form>
       </div>
-
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          20% { transform: translateX(-8px); }
-          40% { transform: translateX(8px); }
-          60% { transform: translateX(-5px); }
-          80% { transform: translateX(5px); }
-        }
-      `}</style>
     </div>
   );
 }
