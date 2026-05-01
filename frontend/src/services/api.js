@@ -1,4 +1,4 @@
-// src/api/fraudApi.js
+// src/api/api.js
 import axios from 'axios';
 
 const api = axios.create({
@@ -29,7 +29,7 @@ api.interceptors.response.use(
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
-      url: error.config?.url
+      url: error.config?.url,
     });
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
