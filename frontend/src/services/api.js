@@ -31,13 +31,11 @@ api.interceptors.response.use(
       message: error.message,
       url: error.config?.url
     });
-
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       alert("Your session has expired. Please login again.");
       window.location.href = '/';
     }
-
     return Promise.reject(error);
   }
 );
@@ -48,16 +46,13 @@ export const fraudApi = {
 
   // Predict Fraud (Protected)
   predict: (featuresArray) =>
-    api.post('/predict', { 
-      features: featuresArray 
-    }),
+    api.post('/predict', { features: featuresArray }),
 
-  // Login - Fixed version
+  // Login
   login: async (username, password) => {
     const formData = new URLSearchParams();
     formData.append('username', username);
     formData.append('password', password);
-
     return api.post('/login', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -66,6 +61,6 @@ export const fraudApi = {
   },
 
   // Register
-  register: (userData) => 
+  register: (userData) =>
     api.post('/register', userData),
 };
