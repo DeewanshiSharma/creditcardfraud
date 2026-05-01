@@ -4,13 +4,13 @@ import Home from './pages/Home';
 import Predict from './pages/Predict';
 import Compare from './pages/Compare';
 import Plots from './pages/Plots';
-import Login from './pages/Login';
+import Login from './pages/Login';     // Keeping the same file name
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Check if user is already logged in on app start
+  // Check if user is already logged in (token exists)
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -19,7 +19,7 @@ function App() {
     setLoading(false);
   }, []);
 
-  const handleLogin = () => {
+  const handleLoginSuccess = () => {
     setIsLoggedIn(true);
   };
 
@@ -36,17 +36,20 @@ function App() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#fff'
+        color: '#fff',
+        fontSize: '1.2rem'
       }}>
         Loading...
       </div>
     );
   }
 
+  // Show Login/Register page if user is not logged in
   if (!isLoggedIn) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLoginSuccess} />;
   }
 
+  // Main App after login
   return (
     <Router>
       <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white' }}>
