@@ -67,15 +67,19 @@ function App() {
   const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
+    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔐 Auth Event:', event, session ? 'User logged in' : 'No session');
 
       if (event === 'SIGNED_OUT') {
+        // Only mark as expired if there was a previous session (not a manual logout)
+        setSessionExpired((prev) => prev); // handled by handleLogout resetting it
         setSession(null);
       } else if (event === 'TOKEN_REFRESHED') {
         setSessionExpired(false);
@@ -91,7 +95,7 @@ function App() {
   }, []);
 
   const handleLogout = async () => {
-    setSessionExpired(false);
+    setSessionExpired(false); // manual logout — no expiry message
     await supabase.auth.signOut();
   };
 
@@ -108,6 +112,8 @@ function App() {
           path="/login"
           element={session ? <Navigate to="/" replace /> : <Login sessionExpired={sessionExpired} />}
         />
+
+        {/* Protected Routes */}
         <Route element={session ? <Layout handleLogout={handleLogout} /> : <Navigate to="/login" replace />}>
           <Route path="/" element={<Home />} />
           <Route path="/predict" element={<Predict />} />
