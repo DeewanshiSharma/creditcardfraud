@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer , HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from typing import List
@@ -74,7 +74,7 @@ def sigmoid(z):
 async def root():
     return {"message": "Fraud Guard API is running", "status": "ok", "version": "1.0"}
 
-@app.post("/predict-debug")
+@app.post("predict-debug")
 async def predict_debug(request: Request):
     auth = request.headers.get("Authorization", "No auth header")
     secret = os.getenv("SUPABASE_JWT_SECRET", "NOT SET")
