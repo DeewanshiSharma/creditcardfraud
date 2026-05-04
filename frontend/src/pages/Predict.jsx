@@ -62,8 +62,14 @@ export default function Predict() {
         data.fraud_probability = Math.max(1, Math.min(99, Math.round(data.fraud_probability)));
       }
       setResult(data);
-    } catch {
-      setError('Cannot connect to backend. Ensure FastAPI is running on http://127.0.0.1:8000');
+    } catch (err) {
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      setError(
+        detail
+          ? `Error ${status}: ${detail}`
+          : err?.message || 'Failed to connect to backend.'
+      );
     } finally {
       setLoading(false);
     }
