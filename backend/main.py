@@ -99,7 +99,6 @@ async def predict_fraud(
         z = x_scaled @ w + b
         prob = float(sigmoid(z)[0])
 
-        
         threshold = 0.90
         is_fraud = prob >= threshold
 
