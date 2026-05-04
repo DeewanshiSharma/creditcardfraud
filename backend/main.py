@@ -1,103 +1,66 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
-from jose import JWTError, jwt
-from typing import List
-import numpy as np
-import joblib
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+import google.generativeai as genai
+from flask import Flask, render_template, request, jsonify
+import requests
+import warnings
 
-# ========================= CONFIGURATION =========================
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
-ALGORITHM = "HS256"
+warnings.filterwarnings("ignore", category=FutureWarning)
 
-app = FastAPI(title="Fraud Guard API")
+# === DEBUG: WHERE ARE WE? ===
+script_dir = Path(__file__).parent
+env_path = script_dir / ".env"
 
-# ========================= CORS =========================
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://creditcardfraud-1.onrender.com"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+print("=== DEBUG INFO ===")
+print(f"Script location: {script_dir}")
+print(f".env path: {env_path}")
+print(f".env exists? {env_path.exists()}")
 
-# ========================= SECURITY =========================
-security = HTTPBearer()
+if not env_path.exists():
+    raise FileNotFoundError(f".env not found! Create it at: {env_path}")
 
-def verify_supabase_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
+load_dotenv(dotenv_path=env_path)
+
+# === GET KEY ===
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+print(f"API Key loaded? {'YES' if GEMINI_API_KEY else 'NO'}")
+
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY is missing! Check .env file.")
+
+print("API Key is valid. Starting Flask app...")
+
+# === FLASK SETUP ===
+app = Flask(__name__)
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/process', methods=['POST'])
+def process():
     try:
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=[ALGORITHM],
-            audience="authenticated"
-        )
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: no user ID found"
-            )
-        return payload
-    except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {str(e)}"
-        )
+        data = request.get_json()
+        user_message = data['message'].lower()
+        reply = ""
 
-# ========================= PYDANTIC SCHEMAS =========================
-class TransactionInput(BaseModel):
-    features: List[float]
+        if any(x in user_message for x in ["who created you", "who made you"]):
+            reply = "I was created by Veera karthick."
+        elif any(x in user_message for x in ["about veera karthick", "who is veera karthick"]):
+            reply = "He is an AI Engineer, a problem solver, and a critical thinker."
+        else:
+            payload = {"contents": [{"parts": [{"text": user_message}]}]}
+            headers = {"Content-Type": "application/json"}
+            response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
+            response.raise_for_status()
+            reply = response.json()['candidates'][0]['content']['parts'][0]['text']
 
-# ========================= MODEL LOADING =========================
-try:
-    model_path = os.path.join(os.path.dirname(__file__), "fraud_model.pkl")
-    model_data = joblib.load(model_path)
-    w = model_data['w']
-    b = model_data['b']
-    mu = model_data['mu']
-    sigma = model_data['sigma']
-    eps = 1e-15
-    print("✅ Fraud model loaded successfully!")
-except Exception as e:
-    print("❌ Error loading model:", e)
-    raise
-
-def sigmoid(z):
-    return 1.0 / (1.0 + np.exp(-np.clip(z, -500, 500)))
-
-# ========================= ROUTES =========================
-@app.get("/")
-async def root():
-    return {"message": "Fraud Guard API is running", "status": "ok", "version": "1.0"}
-
-@app.post("/predict")
-async def predict_fraud(
-    data: TransactionInput,
-    user: dict = Depends(verify_supabase_token)
-):
-    try:
-        if len(data.features) != 30:
-            raise HTTPException(status_code=400, detail="Exactly 30 features required")
-
-        x = np.array(data.features, dtype=np.float64).reshape(1, -1)
-        x_scaled = (x - mu) / (sigma + eps)
-        z = x_scaled @ w + b
-        prob = float(sigmoid(z)[0])
-
-        threshold = 0.90
-        is_fraud = prob >= threshold
-
-        return {
-            "is_fraud": bool(is_fraud),
-            "fraud_probability": round(prob * 100, 2),
-            "threshold_used": threshold,
-            "message": "🚨 High Risk - Possible Fraud!" if is_fraud else "✅ Transaction appears legitimate.",
-            "recommendation": "Block transaction" if is_fraud else "Allow transaction",
-            "user_id": user.get("sub")
-        }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        reply = "Sorry, something went wrong."
+
+    return jsonify({'reply': reply})
+
+if __name__ == '__main__':
+    app.run(debug=True)
