@@ -1,128 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, Outlet } from 'react-router-dom';
-import { supabase } from './supabase';
+Skip to content
+DeewanshiSharma
+creditcardfraud
+Repository navigation
+Code
+Issues
+Pull requests
+Agents
+Actions
+Projects
+Wiki
+Security and quality
+Insights
+Settings
+Settings: DeewanshiSharma/creditcardfraud
+Access
+Code and automation
+Security and quality
+Integrations
+Temporary interaction limits
+Temporarily restrict which external users can interact with your repository (comment, open issues, or create pull requests) for a configurable period of time.
 
-import Home from './pages/Home';
-import Predict from './pages/Predict';
-import Compare from './pages/Compare';
-import Plots from './pages/Plots';
-import Login from './pages/Login';
+This may be used to force a "cool-down" period during heated discussions or prevent unwanted interactions.
 
-function Layout({ handleLogout }) {
-  return (
-    <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white' }}>
-      <nav style={{
-        background: 'rgba(10,20,40,0.85)',
-        backdropFilter: 'blur(24px)',
-        borderBottom: '1px solid rgba(99,137,255,0.15)',
-        padding: '0 2rem',
-        height: '64px',
-        display: 'flex',
-        alignItems: 'center',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🛡️</div>
-          <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.5px' }}>FraudGuard</span>
-        </div>
+You can restrict repository interactions across your account in your account settings.
+Limit to existing users
+Users that have recently created their account will be unable to interact with the repository.
 
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: '4px' }}>
-          {[
-            { to: '/', label: 'Home' },
-            { to: '/predict', label: 'Predict' },
-            { to: '/compare', label: 'Compare' },
-            { to: '/plots', label: 'Plots' },
-          ].map(({ to, label }) => (
-            <NavLink key={to} to={to} end={to === '/'} style={({ isActive }) => ({
-              color: isActive ? '#fff' : 'rgba(255,255,255,0.55)',
-              padding: '6px 18px',
-              borderRadius: '8px',
-              background: isActive ? 'rgba(99,102,241,0.25)' : 'transparent',
-              border: isActive ? '1px solid rgba(99,102,241,0.5)' : '1px solid transparent',
-              textDecoration: 'none',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-            })}>
-              {label}
-            </NavLink>
-          ))}
-        </div>
+ New users
+ Users
+ Contributors
+ Collaborators
+Limit to prior contributors
+Users that have not previously committed to the main branch of this repository will be unable to interact with the repository.
 
-        <div style={{ minWidth: '180px', display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={handleLogout} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '6px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
-            Logout
-          </button>
-        </div>
-      </nav>
-      <main><Outlet /></main>
-    </div>
-  );
-}
+ New users
+ Users
+ Contributors
+ Collaborators
+Limit to repository collaborators
+Users that are not collaborators will not be able to interact with the repository.
 
-function App() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [sessionExpired, setSessionExpired] = useState(false);
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔐 Auth Event:', event, session ? 'User logged in' : 'No session');
-
-      if (event === 'SIGNED_OUT') {
-        // Only mark as expired if there was a previous session (not a manual logout)
-        setSessionExpired((prev) => prev); // handled by handleLogout resetting it
-        setSession(null);
-      } else if (event === 'TOKEN_REFRESHED') {
-        setSessionExpired(false);
-        setSession(session);
-      } else {
-        setSession(session);
-      }
-
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleLogout = async () => {
-    setSessionExpired(false); // manual logout — no expiry message
-    await supabase.auth.signOut();
-  };
-
-  if (loading) return (
-    <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      Loading...
-    </div>
-  );
-
-  return (
-    <Router>
-      <Routes>
-        <Route
-          path="/login"
-          element={session ? <Navigate to="/" replace /> : <Login sessionExpired={sessionExpired} />}
-        />
-
-        {/* Protected Routes */}
-        <Route element={session ? <Layout handleLogout={handleLogout} /> : <Navigate to="/login" replace />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/predict" element={<Predict />} />
-          <Route path="/compare" element={<Compare />} />
-          <Route path="/plots" element={<Plots />} />
-        </Route>
-      </Routes>
-    </Router>
-  );
-}
-
-export default App;
+ New users
+ Users
+ Contributors
+ Collaborators
+Footer
+© 2026 GitHub, Inc.
+Footer navigation
+Terms
+Privacy
+Security
+Status
+Community
+Docs
+Contact
+Manage cookies
+Do not share my personal information
