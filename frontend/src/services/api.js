@@ -49,6 +49,6 @@ export const fraudApi = {
 
   // Predict Fraud (Protected)
   predict: (featuresArray) =>
-    api.post('/predict',{features: featuresArray}),
+    api.post('/predict', { features: featuresArray }),
 
 };
