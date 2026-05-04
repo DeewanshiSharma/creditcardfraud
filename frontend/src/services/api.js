@@ -1,5 +1,6 @@
-// src/api/api.js
+// src/services/api.js
 import axios from 'axios';
+import { supabase } from '../supabase';
 
 const api = axios.create({
   baseURL: 'https://creditcardfraud-tyza.onrender.com',
@@ -9,10 +10,11 @@ const api = axios.create({
   },
 });
 
-// Request Interceptor - Add JWT Token automatically
+// Request Interceptor - Add Supabase JWT Token automatically
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
+  async (config) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -24,18 +26,19 @@ api.interceptors.request.use(
 // Response Interceptor - Handle 401 (Unauthorized)
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     console.error("❌ Fraud API Error:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
       url: error.config?.url,
     });
+
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      alert("Your session has expired. Please login again.");
-      window.location.href = '/';
+      await supabase.auth.signOut(); // sign out from Supabase
+      window.location.href = '/login';
     }
+
     return Promise.reject(error);
   }
 );
@@ -47,20 +50,4 @@ export const fraudApi = {
   // Predict Fraud (Protected)
   predict: (featuresArray) =>
     api.post('/predict', { features: featuresArray }),
-
-  // Login
-  login: async (username, password) => {
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
-    return api.post('/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
-  },
-
-  // Register
-  register: (userData) =>
-    api.post('/register', userData),
 };
