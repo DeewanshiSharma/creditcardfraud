@@ -11,7 +11,6 @@ import Login from './pages/Login';
 function Layout({ handleLogout }) {
   return (
     <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white' }}>
-      {/* Your nav code remains the same */}
       <nav style={{
         background: 'rgba(10,20,40,0.85)',
         backdropFilter: 'blur(24px)',
@@ -24,7 +23,6 @@ function Layout({ handleLogout }) {
         top: 0,
         zIndex: 100,
       }}>
-        {/* ... keep your existing nav content ... */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '180px' }}>
           <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6, #6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>🛡️</div>
           <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.5px' }}>FraudGuard</span>
@@ -66,16 +64,30 @@ function Layout({ handleLogout }) {
 function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
+    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('🔐 Auth Event:', event, session ? 'User logged in' : 'No session');
-      setSession(session);
+
+      if (event === 'SIGNED_OUT') {
+        // Only mark as expired if there was a previous session (not a manual logout)
+        setSessionExpired((prev) => prev); // handled by handleLogout resetting it
+        setSession(null);
+      } else if (event === 'TOKEN_REFRESHED') {
+        setSessionExpired(false);
+        setSession(session);
+      } else {
+        setSession(session);
+      }
+
       setLoading(false);
     });
 
@@ -83,16 +95,24 @@ function App() {
   }, []);
 
   const handleLogout = async () => {
+    setSessionExpired(false); // manual logout — no expiry message
     await supabase.auth.signOut();
   };
 
-  if (loading) return <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: '#060E1E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      Loading...
+    </div>
+  );
 
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
-        
+        <Route
+          path="/login"
+          element={session ? <Navigate to="/" replace /> : <Login sessionExpired={sessionExpired} />}
+        />
+
         {/* Protected Routes */}
         <Route element={session ? <Layout handleLogout={handleLogout} /> : <Navigate to="/login" replace />}>
           <Route path="/" element={<Home />} />
