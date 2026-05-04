@@ -1,127 +1,56 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy import create_engine, Column, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from pydantic import BaseModel, EmailStr
-from passlib.context import CryptContext
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List
 import numpy as np
 import joblib
 import os
 
 # ========================= CONFIGURATION =========================
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-local-only")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 24 * 60  # 24 hours
-
-# ========================= DATABASE =========================
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not SQLALCHEMY_DATABASE_URL:
-    print("⚠️ Warning: No DATABASE_URL found. Falling back to local SQLite.")
-    DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
-    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
-else:
-    if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
-        SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-if "sqlite" in SQLALCHEMY_DATABASE_URL:
-    connect_args = {"check_same_thread": False}
-elif "postgresql" in SQLALCHEMY_DATABASE_URL:
-    connect_args = {"sslmode": "require"}
-else:
-    connect_args = {}
-
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app = FastAPI(title="Fraud Guard API")
 
 # ========================= CORS =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=["https://creditcardfraud-1.onrender.com"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ========================= DATABASE MODEL =========================
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+# ========================= SECURITY =========================
+security = HTTPBearer()
 
-Base.metadata.create_all(bind=engine)
+def verify_supabase_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=[ALGORITHM],
+            audience="authenticated"
+        )
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: no user ID found"
+            )
+        return payload
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid or expired token: {str(e)}"
+        )
 
 # ========================= PYDANTIC SCHEMAS =========================
-class UserCreate(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
 class TransactionInput(BaseModel):
     features: List[float]
-
-# ========================= HELPERS =========================
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def authenticate_user(db: Session, username: str, password: str):
-    user = db.query(User).filter(User.username == username).first()
-    if not user or not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    user = db.query(User).filter(User.username == username).first()
-    if user is None:
-        raise credentials_exception
-    return user
 
 # ========================= MODEL LOADING =========================
 try:
@@ -145,53 +74,10 @@ def sigmoid(z):
 async def root():
     return {"message": "Fraud Guard API is running", "status": "ok", "version": "1.0"}
 
-@app.post("/register", status_code=201)
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    try:
-        if db.query(User).filter(User.username == user.username).first():
-            raise HTTPException(status_code=400, detail="Username already registered")
-
-        if db.query(User).filter(User.email == user.email).first():
-            raise HTTPException(status_code=400, detail="Email already registered")
-
-        db_user = User(
-            username=user.username,
-            email=user.email,
-            hashed_password=get_password_hash(user.password)
-        )
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-
-        print(f"✅ New user registered: {user.username}")
-        return {"message": "Account created successfully! You can now login."}
-
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        print(f"❌ Register Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
-
-@app.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
 @app.post("/predict")
 async def predict_fraud(
     data: TransactionInput,
-    current_user: User = Depends(get_current_user)
+    user: dict = Depends(verify_supabase_token)
 ):
     try:
         if len(data.features) != 30:
@@ -211,7 +97,7 @@ async def predict_fraud(
             "threshold_used": threshold,
             "message": "🚨 High Risk - Possible Fraud!" if is_fraud else "✅ Transaction appears legitimate.",
             "recommendation": "Block transaction" if is_fraud else "Allow transaction",
-            "logged_in_user": current_user.username
+            "user_id": user.get("sub")
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
